@@ -12,6 +12,7 @@ var state = {
         this.load.image("background.2", BASE_PATH + "assets/background-2.png?" + ASSET_VERSION, 1600, 200);
         this.load.image("background.3", BASE_PATH + "assets/background-3.png?" + ASSET_VERSION, 1600, 200);
         this.load.image("floor", BASE_PATH + "assets/floor.png?" + ASSET_VERSION, 800, 8);
+        this.load.image("chimney", BASE_PATH + "assets/chimney.png?" + ASSET_VERSION, 24, 96);
     },
     create: function() {
         this.game.physics.startSystem(Phaser.Physics.ARCADE);
@@ -25,7 +26,7 @@ var state = {
         this.game.physics.enable(this.floor);
         this.floor.body.immovable = true;
 
-        this.player = this.add.sprite(0, 0, 'player');
+        this.player = this.add.sprite(100, 0, 'player');
         this.player.animations.add('run', [0, 1, 2, 3, 4, 5, 6, 7], 20, true);
         this.player.animations.add('jump', [8], 1, false);
         this.player.animations.add('broken', [9], 1, false);
@@ -34,6 +35,8 @@ var state = {
 
         this.game.physics.enable(this.player);
         this.player.body.gravity.y = GRAVITY;
+
+        this.chimneys = this.add.group();
 
         
         this.hints = this.add.group();
@@ -54,6 +57,16 @@ var state = {
     },
     update: function() {
         this.game.physics.arcade.collide(this.player, this.floor);
+        this.game.physics.arcade.collide(this.chimneys, this.floor);
+        this.game.physics.arcade.overlap(this.player, this.chimneys, this.killByChimney, null, this);
+
+        var obj = this;
+        this.chimneys.forEachAlive(function(chimney) {
+            if(chimney.body.right < 0) {
+              chimney.kill();
+              obj.spawnChimney();
+            } 
+        });
 
         if(this.game.input.keyboard.isDown(Phaser.Keyboard.UP) 
             || this.game.input.activePointer.isDown
@@ -61,36 +74,55 @@ var state = {
             if(!this.gameStarted) {
                 this.start();
             } else if(this.gameOver) {
-                if(this.time.now > this.timeOver + 400)
-                    this.reset();
+                this.reset();
             } else {
                 if(this.player.body.touching.down)
                     this.player.body.velocity.y = -650;
             }
         }
 
-        if(!this.player.body.touching.down)
-            this.player.animations.play('jump');
-        else
-            this.player.animations.play('run');
 
-        this.background0.tilePosition.x -= this.time.physicsElapsed * SPEED / 8;
-        this.background1.tilePosition.x -= this.time.physicsElapsed * SPEED / 5;
-        this.background2.tilePosition.x -= this.time.physicsElapsed * SPEED / 3;
-        this.background3.tilePosition.x -= this.time.physicsElapsed * SPEED / 1;
-
-
+        if(!this.gameOver) {
+            this.background0.tilePosition.x -= this.time.physicsElapsed * SPEED / 8;
+            this.background1.tilePosition.x -= this.time.physicsElapsed * SPEED / 5;
+            this.background2.tilePosition.x -= this.time.physicsElapsed * SPEED / 3;
+            this.background3.tilePosition.x -= this.time.physicsElapsed * SPEED / 1;
+            if(!this.player.body.touching.down)
+                this.player.animations.play('jump');
+            else
+                this.player.animations.play('run');
+        } else this.player.animations.play('broken');
     },
 
     start: function() {
         this.scoreText.setText("SCORE: "+this.score);
         this.gameStarted = true;
+        this.spawnChimney();
     },
     reset: function() {
         this.gameStarted = false;
         this.gameOver = false;
         this.score = 0;
         this.scoreText.setText("TOUCH TO\nSTART GAME");
+
+        this.chimneys.forEachAlive(function(chimney) {
+            chimney.kill();
+        });
+    },
+
+    spawnChimney: function() {
+        var chimney = this.chimneys.create(
+            this.game.width - 24,
+            this.floor.body.top - 96,
+            'chimney'
+        );
+
+        this.game.physics.arcade.enable(chimney);
+        chimney.body.velocity.x = -200;
+    },
+    killByChimney: function(player, chimney) {
+        chimney.body.velocity.x = 0;
+        this.setGameOver();
     },
 
     addScore: function(addWhat) {
@@ -116,12 +148,11 @@ var state = {
         move.start();
 
     },
-    setGameOver: function(player, enemy) {
+    setGameOver: function() {
         this.timeOver = this.game.time.now;
         this.gameOver = true;
 
         this.scoreText.setText("FINAL SCORE: " + this.score +"\nTOUCH TO TRY AGAIN");
-        this.shareText.visible = true;
     }
 
 };
