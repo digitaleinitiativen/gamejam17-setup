@@ -81,6 +81,8 @@ var state = {
             }
         }
 
+        if(this.gameStarted && !this.gameOver)
+            this.addScore(Math.round(this.time.physicsElapsed * 100));
 
         if(!this.gameOver) {
             this.background0.tilePosition.x -= this.time.physicsElapsed * SPEED / 8;
